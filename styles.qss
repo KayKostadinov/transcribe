@@ -1,6 +1,6 @@
 
 QWidget {
-    background-color: #15283b;
+    background-color: #44A9F8;
     font-size: 16px;
     font-family: Roboto;
     color: white;
@@ -20,11 +20,19 @@ QPushButton {
 }
 
 QTextEdit {
-    background-color: #234465;
+    background-color: #3E4C5D;
     color: white;
     border: none;
     border-radius: 10px;
     padding: 10px;
     font-size: 16px;
     font-family: Roboto;
+}
+
+QLineEdit {
+    outline: none;
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    background-color: #3E4C5D;
 }
