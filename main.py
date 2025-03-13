@@ -27,6 +27,11 @@ class WhisperGUI(QWidget):
         self.initUI()
         self.setAcceptDrops(True)
         self.load_stylesheet("styles.qss")
+        # Determine the path to the ffmpeg executable relative to the application directory
+        app_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+        ffmpeg_path = os.path.join(app_dir, 'bin', 'ffmpeg')
+        # Add the ffmpeg path to the system PATH environment variable
+        os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
 
     def load_stylesheet(self, filename):
         """Loads a QSS file and applies it to the application."""
@@ -80,15 +85,15 @@ class WhisperGUI(QWidget):
         grid.addWidget(self.file_button, 0, 0, 1, 1)
         grid.addWidget(self.transcribe_button, 0, 1, 1, 2)
 
-        grid.addWidget(self.model_label, 1, 0, 1, 1)  # Add the dropdown to the grid
-        grid.addWidget(self.model_dropdown, 1, 1, 1, 2)  # Add the dropdown to the grid
-        grid.addWidget(self.language_label, 2, 0, 1, 1)  # Add the dropdown to the grid
-        grid.addWidget(self.language_dropdown, 2, 1, 1, 2)  # Add the dropdown to the grid
+        grid.addWidget(self.model_label, 1, 0, 1, 1)  
+        grid.addWidget(self.model_dropdown, 1, 1, 1, 2)  
+        grid.addWidget(self.language_label, 2, 0, 1, 1)  
+        grid.addWidget(self.language_dropdown, 2, 1, 1, 2)  
 
-        grid.addWidget(self.output_dir_label, 3, 0, 1, 1)  # Add output dir label
-        grid.addWidget(self.output_dir_field, 3, 1, 1, 1)  # Add output dir field
-        grid.addWidget(self.output_dir_button, 3, 2, 1, 1)  # Add output dir button
-        grid.addWidget(self.selected_files, 4, 0, 1, 3)  # Adjust row index for selected_files
+        grid.addWidget(self.output_dir_label, 3, 0, 1, 1)  
+        grid.addWidget(self.output_dir_field, 3, 1, 1, 1) 
+        grid.addWidget(self.output_dir_button, 3, 2, 1, 1)
+        grid.addWidget(self.selected_files, 4, 0, 1, 3) 
         grid.addWidget(self.text_output, 0, 3, 5, 10)
         self.setLayout(grid)
 
@@ -163,4 +168,3 @@ if __name__ == "__main__":
     window = WhisperGUI()
     window.show()
     window.setFocus()
-    sys.exit(app.exec())

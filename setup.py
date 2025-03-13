@@ -8,8 +8,22 @@ Usage:
 from setuptools import setup
 
 APP = ['main.py']
-DATA_FILES = []
-OPTIONS = {}
+DATA_FILES = [
+    ('styles', ['styles.qss']),  # Include your stylesheet
+    ('bin', ['.venv/lib/python3.11/site-packages/ffmpeg'])  # Include ffmpeg executable
+]
+OPTIONS = {
+    'argv_emulation': True,
+    'packages': ['whisper', 'PyQt6'],  # Include necessary packages
+    'iconfile': 'icon.ico',  # Path to your app's icon file (if any)
+    'plist': {
+        'CFBundleName': 'Softuni Whisper',  # The name of your application
+        'CFBundleShortVersionString': '1.0.0',  # The version of your application
+        'CFBundleIdentifier': 'com.example.whispergui',  # A unique identifier for your app
+        'LSMinimumSystemVersion': '10.10',  # Minimum macOS version
+    },
+    'resources': ['.venv/lib/python3.11/site-packages/ffmpeg'],  # Add ffmpeg or any other resources
+}
 
 setup(
     app=APP,
