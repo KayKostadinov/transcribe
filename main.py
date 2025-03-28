@@ -1,6 +1,22 @@
 import sys
 import os
-# import subprocess
+import imageio_ffmpeg
+
+def setup_ffmpeg_path_auto():
+    try:
+        ffmpeg_exe_path = imageio_ffmpeg.get_ffmpeg_exe()
+        ffmpeg_dir = os.path.dirname(ffmpeg_exe_path)
+        print(f"Using FFmpeg from imageio-ffmpeg: {ffmpeg_exe_path}") # Debugging line
+        os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ["PATH"]
+        print(f"Added to PATH: {ffmpeg_dir}") # Debugging line
+    except ImportError:
+        print("Warning: imageio-ffmpeg not installed. Cannot automatically configure FFmpeg path.", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Error configuring FFmpeg path using imageio-ffmpeg: {e}", file=sys.stderr)
+
+setup_ffmpeg_path_auto()
+
+
 import whisper
 
 from PyQt6.QtWidgets import (
@@ -8,17 +24,12 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPushButton,
     QFileDialog,
-    QVBoxLayout,
-    QHBoxLayout,
     QGridLayout,
     QTextEdit,
     QComboBox,
     QLabel,
     QLineEdit
-    # QGraphicsSceneDragDropEvent
 )
-#from PyQt6.QtCore import Qt, QMimeData
-# from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 class WhisperGUI(QWidget):
 
@@ -27,19 +38,13 @@ class WhisperGUI(QWidget):
         self.initUI()
         self.setAcceptDrops(True)
         self.load_stylesheet("styles.qss")
-        # Determine the path to the ffmpeg executable relative to the application directory
-        app_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
-        ffmpeg_path = os.path.join(app_dir, 'bin', 'ffmpeg')
-        # Add the ffmpeg path to the system PATH environment variable
-        os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
 
     def load_stylesheet(self, filename):
         """Loads a QSS file and applies it to the application."""
         try:
             with open(filename, "r") as f:
                 stylesheet = f.read()
-                # self.setStyleSheet(stylesheet)  # Apply to the current widget
-                app.setStyleSheet(stylesheet)  # Apply to the whole application
+                app.setStyleSheet(stylesheet)  
         except FileNotFoundError:
             print(f"Error: Stylesheet file '{filename}' not found.")
 
@@ -132,39 +137,81 @@ class WhisperGUI(QWidget):
 
 
     def transcribe(self):
-        if hasattr(self, "file_path"):
+        if not hasattr(self, "file_path") or not self.file_path:
+             self.text_output.setText("Please select one or more audio files first.")
+             return
+        if not self.output_dir_field.text():
+            self.text_output.setText("Please select an output directory first.")
+            return
+
+        output_dir = self.output_dir_field.text()
+        os.makedirs(output_dir, exist_ok=True)
+
+        try:
+            self.transcribe_button.setEnabled(False)
+            self.text_output.setText("Loading model and starting transcription...")
+            QApplication.processEvents()
+
+            model_name = self.model_dropdown.currentText()
+            language_choice = self.language_dropdown.currentText()
+            language_code = None 
+            if language_choice == "Bulgarian":
+                language_code = "bg"
+            elif language_choice == "English":
+                language_code = "en"
+
+            model = whisper.load_model(model_name)
+
+            all_transcriptions = []
+            self.text_output.clear() 
+
+            for i, path in enumerate(self.file_path):
+                file_basename = os.path.basename(path)
+                self.text_output.append(f"Transcribing ({i+1}/{len(self.file_path)}): {file_basename}...")
+                QApplication.processEvents() 
+
+                transcribe_options = {}
+                if language_code:
+                    transcribe_options['language'] = language_code
+
+                result = model.transcribe(path, **transcribe_options)
+                transcription_text = str(result["text"])
+                all_transcriptions.append((path, transcription_text))
+
+                self.text_output.append(f"Finished: {file_basename}\n---")
+                QApplication.processEvents() 
+
+                file_name_no_ext = os.path.splitext(file_basename)[0]
+                output_filename = f"{file_name_no_ext}_({model_name})_{language_choice}.txt"
+                output_path = os.path.join(output_dir, output_filename)
+                try:
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        f.write(transcription_text)
+                    self.text_output.append(f"Saved transcription to: {output_path}\n---")
+                except Exception as save_e:
+                     self.text_output.append(f"Error saving file {output_path}: {save_e}\n---")
+                QApplication.processEvents()
+
+
+            combined_text = '\n\n---\n\n'.join([f"File: {os.path.basename(path)}\n\n{text}" for path, text in all_transcriptions])
+            combined_file_name = f"combined_transcription_({model_name})_{language_choice}.txt"
+            combined_output_path = os.path.join(output_dir, combined_file_name)
             try:
-                all_transcriptions = []
-                for path in self.file_path:
-                    model_name = self.model_dropdown.currentText()
-                    model = whisper.load_model(model_name)
-                    result = model.transcribe(path)
-                    all_transcriptions.append(result["text"])
+                with open(combined_output_path, "w", encoding="utf-8") as f:
+                    f.write(combined_text)
+                self.text_output.append(f"\nSaved combined transcription to: {combined_output_path}")
+            except Exception as save_e:
+                 self.text_output.append(f"\nError saving combined file {combined_output_path}: {save_e}")
 
-                    output_dir = self.output_dir_field.text()
-                    if output_dir:
-                        file_name = os.path.splitext(os.path.basename(path))[0] + ".txt"
-                        output_path = os.path.join(output_dir, file_name)
-                        with open(output_path, "w") as f:
-                            f.write(''.join(result["text"]))
 
-                    self.text_output.setText(''.join(result["text"]))
-
-                combined_text = '\n'.join([f"{os.path.basename(path)}:\n{''.join(text)}" for path, text in zip(self.file_path, all_transcriptions)])
-
-                output_dir = self.output_dir_field.text()
-                if output_dir:
-                    combined_file_name = "combined_transcription.txt"  # Choose a filename
-                    combined_output_path = os.path.join(output_dir, combined_file_name)
-                    with open(combined_output_path, "w") as f:
-                        f.write(combined_text)
-            except Exception as e:
-                self.text_output.setText(f"Error: {e}")
-        else:
-            self.text_output.setText("Please select an audio file first.")
+        except Exception as e:
+            self.text_output.append(f"\n\nError during transcription: {e}")
+        finally:
+            self.transcribe_button.setEnabled(True) 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = WhisperGUI()
     window.show()
     window.setFocus()
+    sys.exit(app.exec())
